@@ -19,8 +19,8 @@ namespace analysis {
 class HLTscanAnalyzerData : public root_ext::AnalyzerData {
 public:
     using AnalyzerData::AnalyzerData;
-    
-    //TH2D_ENTRY(lhe_hh_cosTheta_vs_m, 25, 200, 2000, 30, -1.1, 1.1)
+    TH2D_ENTRY(hlt_tau1_vs_hlt_tau2, 13, 27, 40, 13, 27, 40)
+    TH2D_ENTRY(hlt_tau1_vs_hlt_tau2_efficiency, 13, 27, 40, 13, 27, 40)
         
 };
     
@@ -64,9 +64,35 @@ private:
             const ntuple::Event& event = eventTuple.data();
             if (static_cast<EventEnergyScale>(event.eventEnergyScale) != analysis::EventEnergyScale::Central)
                 continue;
-            std::cout << "l1 hwIso 1:" << event.l1_hwIso_1 << std::endl;
-            std::cout << "l1 hwIso 2:" << event.l1_hwIso_2 << std::endl;
+//            for (unsigned n = 0; n < event.l1_hwIso_1.size(); ++n){
+//                std::cout << "l1 hwIso 1:" << event.l1_hwIso_1.at(n) << std::endl;
+//            }
+//            for (unsigned n = 0; n < event.l1_hwIso_2.size(); ++n){
+//                std::cout << "l1 hwIso 2:" << event.l1_hwIso_2.at(n) << std::endl;
+//            }
+
+            for (unsigned n = 0; n < event.hlt_match_p4_1.size(); ++n){
+                for (unsigned h = 0; h < event.hlt_match_p4_2.size(); ++h){
+                    LorentzVectorE_Float first_tau = event.hlt_match_p4_1.at(n);
+                    LorentzVectorE_Float second_tau = event.hlt_match_p4_2.at(h);
+                    if (first_tau.Pt() >= 27 && first_tau.Pt() <= 40){
+                        if (second_tau.Pt() >= 27 && second_tau.Pt() <= 40){
+                            anaData.hlt_tau1_vs_hlt_tau2().Fill(second_tau.Pt(), first_tau.Pt());
+                        }
+                    }
+                }
+            }
         } //end loop on entries
+
+        double total_integral = anaData.hlt_tau1_vs_hlt_tau2().Integral();
+        std::cout << "Total Integral: " << total_integral << std::endl;
+        for (unsigned n = 0; n < anaData.hlt_tau1_vs_hlt_tau2().GetNbinsX(); ++n){
+            for (unsigned h = 0; h < anaData.hlt_tau1_vs_hlt_tau2().GetNbinsY(); ++h){
+                double bin_content = anaData.hlt_tau1_vs_hlt_tau2().GetBinContent(n,h);
+                double bin_efficiency = bin_content/total_integral;
+                anaData.hlt_tau1_vs_hlt_tau2_efficiency().SetBinContent (n,h,bin_efficiency);
+            }
+        }
     }
 
 };
