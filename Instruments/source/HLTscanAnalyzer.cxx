@@ -20,6 +20,8 @@ class HLTscanAnalyzerData : public root_ext::AnalyzerData {
 public:
     using AnalyzerData::AnalyzerData;
     TH2D_ENTRY(hlt_tau1_vs_hlt_tau2, 13, 27, 40, 13, 27, 40)
+    TH2D_ENTRY(tau1_vs_tau2, 13, 27, 40, 13, 27, 40)
+    TH1D_ENTRY(q2, 4, -2, 2)
     TH2D_ENTRY(hlt_tau1_vs_hlt_tau2_efficiency, 13, 27, 40, 13, 27, 40)
         
 };
@@ -44,7 +46,7 @@ private:
     static const std::set<std::string>& GetEnabledBranches()
     {
         static const std::set<std::string> EnabledBranches_read = {
-            "l1_match_p4_1", "l1_match_p4_2", "l1_hwIso_1", "l1_hwIso_2",
+            "p4_1", "p4_2","q_2", "l1_match_p4_1", "l1_match_p4_2", "l1_hwIso_1", "l1_hwIso_2",
             "hlt_match_p4_1", "hlt_match_p4_2"
         };
         return EnabledBranches_read;
@@ -71,6 +73,7 @@ private:
 //                std::cout << "l1 hwIso 2:" << event.l1_hwIso_2.at(n) << std::endl;
 //            }
 
+            anaData.q2().Fill(event.q_2);
             for (unsigned n = 0; n < event.hlt_match_p4_1.size(); ++n){
                 for (unsigned h = 0; h < event.hlt_match_p4_2.size(); ++h){
                     LorentzVectorE_Float first_tau = event.hlt_match_p4_1.at(n);
@@ -82,9 +85,19 @@ private:
                     }
                 }
             }
+
+
+            if (event.p4_1.pt() >= 27 && event.p4_1.pt() <= 40){
+                if (event.p4_2.pt() >= 27 && event.p4_2.pt() <= 40){
+                    anaData.tau1_vs_tau2().Fill(event.p4_2.pt(), event.p4_1.pt());
+                }
+            }
+
         } //end loop on entries
 
-        double total_integral = anaData.hlt_tau1_vs_hlt_tau2().Integral();
+        double total_hlt_integral = anaData.hlt_tau1_vs_hlt_tau2().Integral();
+        std::cout << "Total Integral: " << total_hlt_integral << std::endl;
+        double total_integral = anaData.tau1_vs_tau2().Integral();
         std::cout << "Total Integral: " << total_integral << std::endl;
         for (unsigned n = 0; n < anaData.hlt_tau1_vs_hlt_tau2().GetNbinsX(); ++n){
             for (unsigned h = 0; h < anaData.hlt_tau1_vs_hlt_tau2().GetNbinsY(); ++h){
