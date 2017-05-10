@@ -74,13 +74,22 @@ private:
 //            }
 
             anaData.q2().Fill(event.q_2);
+            LorentzVectorM_Float cand_tau_1;
+            LorentzVectorM_Float cand_tau_2;
             for (unsigned n = 0; n < event.hlt_match_p4_1.size(); ++n){
                 for (unsigned h = 0; h < event.hlt_match_p4_2.size(); ++h){
                     LorentzVectorE_Float first_tau = event.hlt_match_p4_1.at(n);
                     LorentzVectorE_Float second_tau = event.hlt_match_p4_2.at(h);
-                    if (first_tau.Pt() >= 27 && first_tau.Pt() <= 40){
-                        if (second_tau.Pt() >= 27 && second_tau.Pt() <= 40){
-                            anaData.hlt_tau1_vs_hlt_tau2().Fill(second_tau.Pt(), first_tau.Pt());
+                    if (event.iso_1 > 0.5 && event.iso_2 > 0.5){
+                        cand_tau_1 = event.p4_1;
+                        cand_tau_2 = event.p4_2;
+                    }
+                    if (ROOT::Math::VectorUtil::DeltaR(cand_tau_1,first_tau) < 0.5 &&
+                            ROOT::Math::VectorUtil::DeltaR(cand_tau_2,second_tau) < 0.5){
+                        if (first_tau.Pt() >= 27 && first_tau.Pt() <= 40){
+                            if (second_tau.Pt() >= 27 && second_tau.Pt() <= 40){
+                                anaData.hlt_tau1_vs_hlt_tau2().Fill(second_tau.Pt(), first_tau.Pt());
+                            }
                         }
                     }
                 }
@@ -89,7 +98,9 @@ private:
 
             if (event.p4_1.pt() >= 27 && event.p4_1.pt() <= 40){
                 if (event.p4_2.pt() >= 27 && event.p4_2.pt() <= 40){
-                    anaData.tau1_vs_tau2().Fill(event.p4_2.pt(), event.p4_1.pt());
+                    if (event.iso_1 > 0.5 && event.iso_2 > 0.5){
+                        anaData.tau1_vs_tau2().Fill(event.p4_2.pt(), event.p4_1.pt());
+                    }
                 }
             }
 
