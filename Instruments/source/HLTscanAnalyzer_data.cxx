@@ -23,7 +23,7 @@ class HLTscanAnalyzerData : public root_ext::AnalyzerData {
 public:
     using AnalyzerData::AnalyzerData;
     TH2D_ENTRY(hlt_tau1_vs_hlt_tau2, 13, 27, 40, 13, 27, 40)
-    
+    TH2D_ENTRY(hlt_tau1_vs_hlt_tau2_rate, 13, 27, 40, 13, 27, 40)
         
 };
     
@@ -127,14 +127,17 @@ private:
         double total_hlt_integral = anaData.hlt_tau1_vs_hlt_tau2().Integral();
         std::cout << "Total Integral: " << total_hlt_integral << std::endl;
         
-        for (unsigned n = 0; n < anaData.hlt_tau1_vs_hlt_tau2().GetNbinsX(); ++n){
-            for (unsigned h = 0; h < anaData.hlt_tau1_vs_hlt_tau2().GetNbinsY(); ++h){
+        for (unsigned n = 0; n <= anaData.hlt_tau1_vs_hlt_tau2().GetNbinsX(); ++n){
+            for (unsigned h = 0; h <= anaData.hlt_tau1_vs_hlt_tau2().GetNbinsY(); ++h){
                 double bin_content = anaData.hlt_tau1_vs_hlt_tau2().GetBinContent(n,h);
-                if (bin_content == 0) continue;
                 Int_t value_x = anaData.hlt_tau1_vs_hlt_tau2().GetXaxis()->GetBinCenter(n);
                 Int_t value_y = anaData.hlt_tau1_vs_hlt_tau2().GetYaxis()->GetBinCenter(h);
                 if (value_x > value_y) continue;
-                std::cout << "values: " << value_y << "-" << value_x << "-" << bin_content << "- rate(Hz): " << (bin_content/23229) * 2208 * 11245 << std::endl;
+                if (bin_content != 0){
+                    std::cout << "values: " << value_y << "-" << value_x << "-" << bin_content << "- rate(Hz): " << (bin_content/23229) * 2208 * 11245 << std::endl;
+                }
+                double rate = (bin_content/23229) * 2208 * 11.245;
+                anaData.hlt_tau1_vs_hlt_tau2_rate().SetBinContent(n,h,rate);
             }
         }
         
