@@ -28,6 +28,8 @@ public:
     TH1D_ENTRY(q2, 4, -2, 2)
     TH2D_ENTRY(hlt_tau1_vs_hlt_tau2_efficiency, 13, 27, 40, 13, 27, 40)
     TH2D_ENTRY(hlt_tau1_vs_hlt_tau2_efficiency_2, 20, 20, 40, 20, 20, 40)
+    TH2D_ENTRY(hlt_tau1_vs_hlt_tau2_relAcceptance_35_35, 13, 27, 40, 13, 27, 40)
+    TH2D_ENTRY(hlt_tau1_vs_hlt_tau2_relAcceptance_35_35_2, 20, 20, 40, 20, 20, 40)
         
 };
     
@@ -130,7 +132,7 @@ private:
                     LorentzVectorE_Float first_tau_l1 = event.l1_match_p4_1.at(l);
                     Float_t first_tau_l1_iso = event.l1_hwIso_1.at(l);
                     if (!(ROOT::Math::VectorUtil::DeltaR(first_tau,first_tau_l1) < 0.5)) continue;
-                    if(first_tau_l1_iso < 0.5) continue;
+                    if(first_tau_l1_iso < 0.0) continue;
                     std::pair<LorentzVectorE_Float,LorentzVectorE_Float> matched_pair_1(first_tau,first_tau_l1);
                     hlt_l1_match_pair_1.push_back(matched_pair_1);
                 }
@@ -142,7 +144,7 @@ private:
                     LorentzVectorE_Float second_tau_l1 = event.l1_match_p4_2.at(l);
                     Float_t second_tau_l1_iso = event.l1_hwIso_2.at(l);
                     if (!(ROOT::Math::VectorUtil::DeltaR(second_tau,second_tau_l1) < 0.5)) continue;
-                    if(second_tau_l1_iso < 0.5) continue;
+                    if(second_tau_l1_iso < 0.0) continue;
                     std::pair<LorentzVectorE_Float,LorentzVectorE_Float> matched_pair_2(second_tau,second_tau_l1);
                     hlt_l1_match_pair_2.push_back(matched_pair_2);
                 }
@@ -183,8 +185,25 @@ private:
         anaData.hlt_tau1_vs_hlt_tau2_efficiency().CopyContent(anaData.hlt_tau1_vs_hlt_tau2());
         anaData.hlt_tau1_vs_hlt_tau2_efficiency().Scale(1./tot_events);
         
+        int bin_x_35 = anaData.hlt_tau1_vs_hlt_tau2().GetXaxis()->FindBin(35);
+        int bin_y_35 = anaData.hlt_tau1_vs_hlt_tau2().GetYaxis()->FindBin(35);
+        std::cout << "bin_x_35: " << bin_x_35 << ", bin_y_35: " << bin_y_35 << std::endl;
+        double bin_content_35_35 = anaData.hlt_tau1_vs_hlt_tau2().GetBinContent(bin_x_35,bin_y_35);
+        
+        anaData.hlt_tau1_vs_hlt_tau2_relAcceptance_35_35().CopyContent(anaData.hlt_tau1_vs_hlt_tau2());
+        anaData.hlt_tau1_vs_hlt_tau2_relAcceptance_35_35().Scale(1./bin_content_35_35);
+        
+        //from 20-20 threshold
         anaData.hlt_tau1_vs_hlt_tau2_efficiency_2().CopyContent(anaData.hlt_tau1_vs_hlt_tau2_2());
         anaData.hlt_tau1_vs_hlt_tau2_efficiency_2().Scale(1./tot_events);
+        
+        int bin_x_35_2 = anaData.hlt_tau1_vs_hlt_tau2_2().GetXaxis()->FindBin(35);
+        int bin_y_35_2 = anaData.hlt_tau1_vs_hlt_tau2_2().GetYaxis()->FindBin(35);
+        std::cout << "bin_x_35_2: " << bin_x_35_2 << ", bin_y_35_2: " << bin_y_35_2 << std::endl;
+        double bin_content_35_35_2 = anaData.hlt_tau1_vs_hlt_tau2_2().GetBinContent(bin_x_35_2,bin_y_35_2);
+        
+        anaData.hlt_tau1_vs_hlt_tau2_relAcceptance_35_35_2().CopyContent(anaData.hlt_tau1_vs_hlt_tau2_2());
+        anaData.hlt_tau1_vs_hlt_tau2_relAcceptance_35_35_2().Scale(1./bin_content_35_35_2);
         
         
     }
