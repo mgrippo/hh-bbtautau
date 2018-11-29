@@ -5,8 +5,6 @@ This file is part of https://github.com/hh-italian-group/hh-bbtautau. */
 #include <set>
 #include <map>
 
-#pragma once
-
 #include "AnalysisTools/Run/include/program_main.h"
 #include "h-tautau/Analysis/include/EventTuple.h"
 #include "AnalysisTools/Core/include/AnalyzerData.h"
@@ -27,7 +25,7 @@ This file is part of https://github.com/hh-italian-group/hh-bbtautau. */
     VAR(UInt_t, lumi) /* Lumi */ \
     VAR(ULong64_t, evt) /* Evt */ \
     VAR(UInt_t, sampleId) /* sample id */ \
-    VAR(UInt_t, channelId) /* channel id */ \
+    VAR(Int_t, channelId) /* channel id */ \
     VAR(Int_t, n_b_jets) /* Number of total b jets */ \
     VAR(Int_t, n_c_jets) /* Number of total c jets */ \
     VAR(Int_t, n_udsg_jets) /* Number of total udsg jets */ \
@@ -56,7 +54,7 @@ struct Arguments { // list of all program arguments
     OPT_ARG(analysis::JetOrdering, csv_type,analysis::JetOrdering::DeepCSV);
     OPT_ARG(analysis::Period, period, analysis::Period::Run2017);
     REQ_ARG(std::vector<std::string>, input_file);
-    OPT_ARG(std::string, output_sync,"b_sync.root");
+    REQ_ARG(std::string, output_sync);
 
 };
 
@@ -79,7 +77,8 @@ public:
     using EventTuple = ntuple::EventTuple;
 
     BTagEffEstimator(const Arguments& _args) :
-        args(_args), outfile(root_ext::CreateRootFile(args.output_file()))
+        args(_args), outfile(root_ext::CreateRootFile(args.output_file())),
+        outfile_sync(root_ext::CreateRootFile(args.output_sync()))
     {
         ROOT::EnableThreadSafety();
         if(args.n_threads() > 1)
@@ -131,11 +130,12 @@ public:
         //DiscriminatorWP pu_wp = DiscriminatorWP::Medium;
         //if(apply_pu_id_cut && args.period()=="2016") pu_wp = analysis::Parse<DiscriminatorWP>(args.apply_pu_id_cut());
 
-        SyncTuple sync("btag_sync", args.output_sync.get(), false);
+        b_sync::SyncTuple sync("btag_sync",outfile_sync.get() , false);
+        std::cout << "Created Sync" << std::endl;
 
         for(const auto& channel : channels) {
-            if (channel == Channel::MuMu) continue;
-            sync().channelId = static_cast<int>(channel);;
+            if (channel == "muMu") continue;
+
             const auto leg_types = GetChannelLegTypes(analysis::Parse<Channel>(channel));
             for (unsigned n = 0; n < args.input_file().size(); ++n){
                 sync().sampleId = n;
@@ -153,6 +153,7 @@ public:
                 std::cout << "Processing " << name << "/" << channel << std::endl;
 
                 for(const Event& event : *tuple){
+                    sync().channelId = event.channelId;
                     const EventEnergyScale es = static_cast<EventEnergyScale>(event.eventEnergyScale);
                     if (args.period() == Period::Run2016 && (es != EventEnergyScale::Central || event.jets_p4.size() < 2 || event.extraelec_veto
                             || event.extramuon_veto
@@ -188,7 +189,7 @@ public:
                             }*/
                                 if((event.jets_pu_id.at(i) & 2) == 0) continue;
                         }
-                                          
+
                         int jet_hadronFlavour = event.jets_hadronFlavour.at(i);
                         const std::string& jet_flavour = flavours.at(jet_hadronFlavour);
 
@@ -356,6 +357,7 @@ public:
 private:
     Arguments args;
     std::shared_ptr<TFile> outfile;
+    std::shared_ptr<TFile> outfile_sync;
     //BTagData anaData;
     std::map<std::string,std::shared_ptr<BTagData>> anaDataMap;
     std::vector<std::string> tau_signs = {"SS","OS"};
