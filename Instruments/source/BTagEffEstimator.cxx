@@ -19,6 +19,7 @@ This file is part of https://github.com/hh-italian-group/hh-bbtautau. */
 #include "h-tautau/Analysis/include/BTagger.h"
 
 #include "AnalysisTools/Core/include/SmartTree.h"
+#include "h-tautau/Analysis/include/EventInfo.h"
 
 #define B_SYNC_DATA() \
     VAR(UInt_t, run) /* Run */ \
@@ -53,8 +54,9 @@ struct Arguments { // list of all program arguments
     OPT_ARG(unsigned, n_threads, 1);
     OPT_ARG(analysis::JetOrdering, csv_type,analysis::JetOrdering::DeepCSV);
     OPT_ARG(analysis::Period, period, analysis::Period::Run2017);
-    REQ_ARG(std::vector<std::string>, input_file);
     REQ_ARG(std::string, output_sync);
+    REQ_ARG(std::vector<std::string>, input_file);
+
 
 };
 
@@ -154,6 +156,9 @@ public:
 
                 for(const Event& event : *tuple){
                     sync().channelId = event.channelId;
+                    sync().run = event.run;
+                    sync().lumi = event.lumi;
+                    sync().evt = event.evt;
                     const EventEnergyScale es = static_cast<EventEnergyScale>(event.eventEnergyScale);
                     if (args.period() == Period::Run2016 && (es != EventEnergyScale::Central || event.jets_p4.size() < 2 || event.extraelec_veto
                             || event.extramuon_veto
@@ -165,8 +170,10 @@ public:
                             || std::abs(event.jets_p4.at(0).eta()) >= cuts::btag_2017::eta
                             || std::abs(event.jets_p4.at(1).eta()) >= cuts::btag_2017::eta)) continue;
 
-                    auto bb = event.jets_p4.at(0) + event.jets_p4.at(1);
-                    if (!cuts::hh_bbtautau_2017::hh_tag::IsInsideMassWindow(event.SVfit_p4.mass(),bb.mass())) continue;
+                    auto eventInfo = MakeEventInfo(static_cast<Channel>(event.channelId), event, args.period(), args.csv_type());
+
+                    //auto bb = event.jets_p4.at(0) + event.jets_p4.at(1);
+                    if (!cuts::hh_bbtautau_2017::hh_tag::IsInsideMassWindow(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M())) continue;
 
                     std::string tau_sign = (event.q_1+event.q_2) == 0 ? "OS" : "SS";
 
@@ -178,9 +185,11 @@ public:
 
                     for (size_t i = 0; i < event.jets_p4.size(); ++i){
                         const auto& jet = event.jets_p4.at(i);
+
                         if(args.period()==Period::Run2016 && std::abs(jet.eta()) >= cuts::btag_2016::eta) continue;
                         else if(args.period()==Period::Run2017 && std::abs(jet.eta()) >= cuts::btag_2017::eta) continue;
 
+                        if (jet.pt() < 20 || jet.pt() > 30 || std::abs(jet.eta()) > 0.6) continue;
                         //PU correction
                         if(apply_pu_id_cut){
                             /*if(args.period()=="2016"){
