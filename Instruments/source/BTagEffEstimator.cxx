@@ -5,6 +5,8 @@ This file is part of https://github.com/hh-italian-group/hh-bbtautau. */
 #include <set>
 #include <map>
 
+#pragma once
+
 #include "AnalysisTools/Run/include/program_main.h"
 #include "h-tautau/Analysis/include/EventTuple.h"
 #include "AnalysisTools/Core/include/AnalyzerData.h"
@@ -18,6 +20,35 @@ This file is part of https://github.com/hh-italian-group/hh-bbtautau. */
 #include "h-tautau/Analysis/include/TauIdResults.h"
 #include "h-tautau/Analysis/include/BTagger.h"
 
+#include "AnalysisTools/Core/include/SmartTree.h"
+
+#define B_SYNC_DATA() \
+    VAR(UInt_t, run) /* Run */ \
+    VAR(UInt_t, lumi) /* Lumi */ \
+    VAR(ULong64_t, evt) /* Evt */ \
+    VAR(UInt_t, sampleId) /* sample id */ \
+    VAR(UInt_t, channelId) /* channel id */ \
+    VAR(Int_t, n_b_jets) /* Number of total b jets */ \
+    VAR(Int_t, n_c_jets) /* Number of total c jets */ \
+    VAR(Int_t, n_udsg_jets) /* Number of total udsg jets */ \
+    VAR(Int_t, n_b_Mtag) /* Number of b jets passing Medium WP */ \
+    VAR(Int_t, n_c_Mtag) /* Number of c jets passing Medium WP*/ \
+    VAR(Int_t, n_udsg_Mtag) /* Number of c jets passing Medium WP */ \
+    /**/
+
+#define VAR(type, name) DECLARE_BRANCH_VARIABLE(type, name)
+DECLARE_TREE(b_sync, SyncEvent, SyncTuple, B_SYNC_DATA, "events")
+#undef VAR
+
+#define VAR(type, name) ADD_DATA_TREE_BRANCH(name)
+INITIALIZE_TREE(b_sync, SyncTuple, B_SYNC_DATA)
+#undef VAR
+#undef SYNC_DATA
+
+
+#define COND_VAL(cond, val) cond ? static_cast<float>(val) : default_value
+#define COND_VAL_INT(cond, val) cond ? static_cast<int>(val) : default_int_value
+
 struct Arguments { // list of all program arguments
     REQ_ARG(std::string, output_file);
     OPT_ARG(std::string, apply_pu_id_cut,"no");
@@ -25,6 +56,7 @@ struct Arguments { // list of all program arguments
     OPT_ARG(analysis::JetOrdering, csv_type,analysis::JetOrdering::DeepCSV);
     OPT_ARG(analysis::Period, period, analysis::Period::Run2017);
     REQ_ARG(std::vector<std::string>, input_file);
+    OPT_ARG(std::string, output_sync,"b_sync.root");
 
 };
 
@@ -99,9 +131,15 @@ public:
         //DiscriminatorWP pu_wp = DiscriminatorWP::Medium;
         //if(apply_pu_id_cut && args.period()=="2016") pu_wp = analysis::Parse<DiscriminatorWP>(args.apply_pu_id_cut());
 
+        SyncTuple sync("btag_sync", args.output_sync.get(), false);
+
         for(const auto& channel : channels) {
+            if (channel == Channel::MuMu) continue;
+            sync().channelId = static_cast<int>(channel);;
             const auto leg_types = GetChannelLegTypes(analysis::Parse<Channel>(channel));
-            for (const auto& name : args.input_file()){
+            for (unsigned n = 0; n < args.input_file().size(); ++n){
+                sync().sampleId = n;
+                const auto& name = args.input_file().at(n);
                 std::shared_ptr<TFile> in_file(root_ext::OpenRootFile(name));
                 std::shared_ptr<EventTuple> tuple;
                 try {
@@ -199,6 +237,7 @@ public:
                             }
                         }
                     }//end loop on jets
+                    sync.Write();
                 }//end loop on events
             }// end loop on files
         }//end loop on channel
