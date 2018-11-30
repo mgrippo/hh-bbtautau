@@ -176,7 +176,7 @@ public:
                     //auto bb = event.jets_p4.at(0) + event.jets_p4.at(1);
                     analysis::EllipseParameters ellipse_params{116, 45, 111, 55};
                     //if (!cuts::hh_bbtautau_2017::hh_tag::IsInsideMassWindow(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M())) continue;
-                    if(ellipse_params.IsInside(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M())) continue;
+                    if(!ellipse_params.IsInside(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M())) continue;
                     std::string tau_sign = (event.q_1+event.q_2) == 0 ? "OS" : "SS";
 
                     const bool passTauId = (leg_types.first != LegType::tau || PassTauIdCut(event.tauId_flags_1))
