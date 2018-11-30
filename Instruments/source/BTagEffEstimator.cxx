@@ -77,6 +77,7 @@ class BTagEffEstimator {
 public:
     using Event = ntuple::Event;
     using EventTuple = ntuple::EventTuple;
+    using CountMap = std::map<Int_t, Int_t>;
 
     BTagEffEstimator(const Arguments& _args) :
         args(_args), outfile(root_ext::CreateRootFile(args.output_file())),
@@ -122,9 +123,11 @@ public:
 
         static const std::set<std::string> disabled_branches;
         static const std::set<std::string> enabled_branches = {
-            "jets_p4", "SVfit_p4", "extramuon_veto", "extraelec_veto", "q_1", "q_2", "tauId_keys_1", "tauId_values_1",
+            "run", "lumi", "evt", "trigger_accepts", "trigger_matches", "jets_p4", "SVfit_p4", "extramuon_veto", "extraelec_veto",
+            "q_1", "q_2", "tauId_keys_1", "tauId_values_1", "eventEnergyScale", "channelId",
             "tauId_keys_2", "tauId_values_2", "jets_mva", "jets_csv", "jets_deepCsv_BvsAll", "jets_hadronFlavour",
-            "jets_pu_id", "jets_deepFlavour_b", "jets_deepFlavour_bb", "jets_deepFlavour_lepb"
+            "jets_pu_id", "jets_deepFlavour_b", "jets_deepFlavour_bb", "jets_deepFlavour_lepb", "tauId_flags_1",
+            "tauId_flags_2"
         };
 
 
@@ -146,7 +149,8 @@ public:
                 std::shared_ptr<EventTuple> tuple;
                 try {
                     tuple = std::make_shared<EventTuple>(channel, in_file.get(), true, disabled_branches,
-                                                         enabled_branches);
+                                                          enabled_branches);
+                    //tuple = std::make_shared<EventTuple>(channel, in_file.get(), true);
                 } catch(std::exception&) {
                     std::cerr << "WARNING: tree "<<channel<<" not found in file"<<name<< std::endl;
                     continue;
@@ -160,21 +164,19 @@ public:
                     sync().lumi = event.lumi;
                     sync().evt = event.evt;
                     const EventEnergyScale es = static_cast<EventEnergyScale>(event.eventEnergyScale);
-                    if (args.period() == Period::Run2016 && (es != EventEnergyScale::Central || event.jets_p4.size() < 2 || event.extraelec_veto
-                            || event.extramuon_veto
-                            || std::abs(event.jets_p4.at(0).eta()) >= cuts::btag_2016::eta
-                            || std::abs(event.jets_p4.at(1).eta()) >= cuts::btag_2016::eta)) continue;
+                    if (args.period() == Period::Run2016 && (es != EventEnergyScale::Central || event.extraelec_veto
+                            || event.extramuon_veto)) continue;
 
-                    else if (args.period() == Period::Run2017 && (es != EventEnergyScale::Central || event.jets_p4.size() < 2 || event.extraelec_veto
-                            || event.extramuon_veto
-                            || std::abs(event.jets_p4.at(0).eta()) >= cuts::btag_2017::eta
-                            || std::abs(event.jets_p4.at(1).eta()) >= cuts::btag_2017::eta)) continue;
+                    else if (args.period() == Period::Run2017 && (es != EventEnergyScale::Central || event.extraelec_veto
+                            || event.extramuon_veto)) continue;
 
                     auto eventInfo = MakeEventInfo(static_cast<Channel>(event.channelId), event, args.period(), args.csv_type());
 
+                    if(!eventInfo->HasBjetPair()) continue;
                     //auto bb = event.jets_p4.at(0) + event.jets_p4.at(1);
-                    if (!cuts::hh_bbtautau_2017::hh_tag::IsInsideMassWindow(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M())) continue;
-
+                    analysis::EllipseParameters ellipse_params{116, 45, 111, 55};
+                    //if (!cuts::hh_bbtautau_2017::hh_tag::IsInsideMassWindow(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M())) continue;
+                    if(ellipse_params.IsInside(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M())) continue;
                     std::string tau_sign = (event.q_1+event.q_2) == 0 ? "OS" : "SS";
 
                     const bool passTauId = (leg_types.first != LegType::tau || PassTauIdCut(event.tauId_flags_1))
@@ -183,6 +185,8 @@ public:
 
                     std::string tau_iso = passTauId ? "Iso" : "NonIso";
 
+                    CountMap n_jets;
+                    CountMap n_Mtag;
                     for (size_t i = 0; i < event.jets_p4.size(); ++i){
                         const auto& jet = event.jets_p4.at(i);
 
@@ -200,6 +204,7 @@ public:
                         }
 
                         int jet_hadronFlavour = event.jets_hadronFlavour.at(i);
+                        n_jets[jet_hadronFlavour]++;
                         const std::string& jet_flavour = flavours.at(jet_hadronFlavour);
 
                         //For folder/subfolder structure in Sign and Isolation
@@ -225,6 +230,8 @@ public:
                         for(const auto& btag_wp : btag_working_points) {
                             if(bTagger.Pass(event,i,btag_wp.second)){
                                 //For folder/subfolder structure in Sign and Isolation
+                                if(btag_wp.second == DiscriminatorWP::Medium)
+                                    n_Mtag[jet_hadronFlavour]++;
                                 anaDataMap[tau_sign+tau_iso+eff]->h2(num, flavour_all, btag_wp.first, channel).
                                     Fill(jet.Pt(), std::abs(jet.Eta()));
                                 if (channel != "muMu") anaDataMap[tau_sign+tau_iso+eff]->h2(num, flavour_all,
@@ -247,10 +254,18 @@ public:
                             }
                         }
                     }//end loop on jets
-                    sync.Write();
+                    sync().n_b_jets = n_jets[5];
+                    sync().n_c_jets = n_jets[4];
+                    sync().n_udsg_jets = n_jets[0];
+                    sync().n_b_Mtag = n_Mtag[5];
+                    sync().n_c_Mtag = n_Mtag[4];
+                    sync().n_udsg_Mtag = n_Mtag[0];
+
+                    sync.Fill();
                 }//end loop on events
             }// end loop on files
         }//end loop on channel
+        sync.Write();
 
 
         //Create Efficiency Histograms
