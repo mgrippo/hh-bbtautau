@@ -21,28 +21,28 @@ This file is part of https://github.com/hh-italian-group/hh-bbtautau. */
 #include "AnalysisTools/Core/include/SmartTree.h"
 #include "h-tautau/Analysis/include/EventInfo.h"
 
-#define B_SYNC_DATA() \
-    VAR(UInt_t, run) /* Run */ \
-    VAR(UInt_t, lumi) /* Lumi */ \
-    VAR(ULong64_t, evt) /* Evt */ \
-    VAR(UInt_t, sampleId) /* sample id */ \
-    VAR(Int_t, channelId) /* channel id */ \
-    VAR(Int_t, n_b_jets) /* Number of total b jets */ \
-    VAR(Int_t, n_c_jets) /* Number of total c jets */ \
-    VAR(Int_t, n_udsg_jets) /* Number of total udsg jets */ \
-    VAR(Int_t, n_b_Mtag) /* Number of b jets passing Medium WP */ \
-    VAR(Int_t, n_c_Mtag) /* Number of c jets passing Medium WP*/ \
-    VAR(Int_t, n_udsg_Mtag) /* Number of c jets passing Medium WP */ \
-    /**/
-
-#define VAR(type, name) DECLARE_BRANCH_VARIABLE(type, name)
-DECLARE_TREE(b_sync, SyncEvent, SyncTuple, B_SYNC_DATA, "events")
-#undef VAR
-
-#define VAR(type, name) ADD_DATA_TREE_BRANCH(name)
-INITIALIZE_TREE(b_sync, SyncTuple, B_SYNC_DATA)
-#undef VAR
-#undef SYNC_DATA
+// #define B_SYNC_DATA() \
+//     VAR(UInt_t, run) /* Run */ \
+//     VAR(UInt_t, lumi) /* Lumi */ \
+//     VAR(ULong64_t, evt) /* Evt */ \
+//     VAR(UInt_t, sampleId) /* sample id */ \
+//     VAR(Int_t, channelId) /* channel id */ \
+//     VAR(Int_t, n_b_jets) /* Number of total b jets */ \
+//     VAR(Int_t, n_c_jets) /* Number of total c jets */ \
+//     VAR(Int_t, n_udsg_jets) /* Number of total udsg jets */ \
+//     VAR(Int_t, n_b_Mtag) /* Number of b jets passing Medium WP */ \
+//     VAR(Int_t, n_c_Mtag) /* Number of c jets passing Medium WP*/ \
+//     VAR(Int_t, n_udsg_Mtag) /* Number of c jets passing Medium WP */ \
+//     /**/
+//
+// #define VAR(type, name) DECLARE_BRANCH_VARIABLE(type, name)
+// DECLARE_TREE(b_sync, SyncEvent, SyncTuple, B_SYNC_DATA, "events")
+// #undef VAR
+//
+// #define VAR(type, name) ADD_DATA_TREE_BRANCH(name)
+// INITIALIZE_TREE(b_sync, SyncTuple, B_SYNC_DATA)
+// #undef VAR
+// #undef SYNC_DATA
 
 
 #define COND_VAL(cond, val) cond ? static_cast<float>(val) : default_value
@@ -54,8 +54,14 @@ struct Arguments { // list of all program arguments
     OPT_ARG(unsigned, n_threads, 1);
     OPT_ARG(analysis::JetOrdering, csv_type,analysis::JetOrdering::DeepCSV);
     OPT_ARG(analysis::Period, period, analysis::Period::Run2017);
-    REQ_ARG(std::string, output_sync);
+    //REQ_ARG(std::string, output_sync);
+    REQ_ARG(bool, is_inside_ring);
+    REQ_ARG(float, inner_radius_a);
+    REQ_ARG(float, inner_radius_b);
+    REQ_ARG(float, outer_radius_a);
+    REQ_ARG(float, outer_radius_b);
     REQ_ARG(std::vector<std::string>, input_file);
+
 
 
 };
@@ -80,8 +86,8 @@ public:
     using CountMap = std::map<Int_t, Int_t>;
 
     BTagEffEstimator(const Arguments& _args) :
-        args(_args), outfile(root_ext::CreateRootFile(args.output_file())),
-        outfile_sync(root_ext::CreateRootFile(args.output_sync()))
+        args(_args), outfile(root_ext::CreateRootFile(args.output_file()))//,
+        //outfile_sync(root_ext::CreateRootFile(args.output_sync()))
     {
         ROOT::EnableThreadSafety();
         if(args.n_threads() > 1)
@@ -127,7 +133,7 @@ public:
             "q_1", "q_2", "tauId_keys_1", "tauId_values_1", "eventEnergyScale", "channelId",
             "tauId_keys_2", "tauId_values_2", "jets_mva", "jets_csv", "jets_deepCsv_BvsAll", "jets_hadronFlavour",
             "jets_pu_id", "jets_deepFlavour_b", "jets_deepFlavour_bb", "jets_deepFlavour_lepb", "tauId_flags_1",
-            "tauId_flags_2"
+            "tauId_flags_2", "p4_1", "p4_2"
         };
 
 
@@ -135,15 +141,15 @@ public:
         //DiscriminatorWP pu_wp = DiscriminatorWP::Medium;
         //if(apply_pu_id_cut && args.period()=="2016") pu_wp = analysis::Parse<DiscriminatorWP>(args.apply_pu_id_cut());
 
-        b_sync::SyncTuple sync("btag_sync",outfile_sync.get() , false);
-        std::cout << "Created Sync" << std::endl;
+        // b_sync::SyncTuple sync("btag_sync",outfile_sync.get() , false);
+        // std::cout << "Created Sync" << std::endl;
 
         for(const auto& channel : channels) {
             if (channel == "muMu") continue;
 
             const auto leg_types = GetChannelLegTypes(analysis::Parse<Channel>(channel));
             for (unsigned n = 0; n < args.input_file().size(); ++n){
-                sync().sampleId = n;
+                // sync().sampleId = n;
                 const auto& name = args.input_file().at(n);
                 std::shared_ptr<TFile> in_file(root_ext::OpenRootFile(name));
                 std::shared_ptr<EventTuple> tuple;
@@ -159,10 +165,10 @@ public:
                 std::cout << "Processing " << name << "/" << channel << std::endl;
 
                 for(const Event& event : *tuple){
-                    sync().channelId = event.channelId;
-                    sync().run = event.run;
-                    sync().lumi = event.lumi;
-                    sync().evt = event.evt;
+                    // sync().channelId = event.channelId;
+                    // sync().run = event.run;
+                    // sync().lumi = event.lumi;
+                    // sync().evt = event.evt;
                     const EventEnergyScale es = static_cast<EventEnergyScale>(event.eventEnergyScale);
                     if (args.period() == Period::Run2016 && (es != EventEnergyScale::Central || event.extraelec_veto
                             || event.extramuon_veto)) continue;
@@ -174,9 +180,19 @@ public:
 
                     if(!eventInfo->HasBjetPair()) continue;
                     //auto bb = event.jets_p4.at(0) + event.jets_p4.at(1);
-                    analysis::EllipseParameters ellipse_params{116, 45, 111, 55};
+                    //analysis::EllipseParameters ellipse_params{116, 35, 111, 45}; - bigger 45 - 55
+                    analysis::EllipseParameters ellipse_params_inner{116, args.inner_radius_a(), 111, args.inner_radius_b()};
+                    analysis::EllipseParameters ellipse_params_outer{116, args.outer_radius_a(), 111, args.outer_radius_b()};
+
+                    if(args.is_inside_ring()){
+                        if(!(!ellipse_params_inner.IsInside(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M()) &&
+                            ellipse_params_outer.IsInside(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M()))) continue;
+                    }
+                    else {
+                        if(!ellipse_params_inner.IsInside(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M())) continue;
+                    }
                     //if (!cuts::hh_bbtautau_2017::hh_tag::IsInsideMassWindow(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M())) continue;
-                    if(!ellipse_params.IsInside(event.SVfit_p4.mass(),eventInfo->GetHiggsBB().GetMomentum().M())) continue;
+
                     std::string tau_sign = (event.q_1+event.q_2) == 0 ? "OS" : "SS";
 
                     const bool passTauId = (leg_types.first != LegType::tau || PassTauIdCut(event.tauId_flags_1))
@@ -193,14 +209,15 @@ public:
                         if(args.period()==Period::Run2016 && std::abs(jet.eta()) >= cuts::btag_2016::eta) continue;
                         else if(args.period()==Period::Run2017 && std::abs(jet.eta()) >= cuts::btag_2017::eta) continue;
 
-                        if (jet.pt() < 20 || jet.pt() > 30 || std::abs(jet.eta()) > 0.6) continue;
+
+                        // if (jet.pt() < 20 || jet.pt() > 30 || std::abs(jet.eta()) > 0.6) continue;
                         //PU correction
                         if(apply_pu_id_cut){
                             /*if(args.period()=="2016"){
                                 double jet_mva = event.jets_mva.at(i);
                                 if(!PassJetPuId(jet.Pt(),jet_mva,pu_wp)) continue;
                             }*/
-                                if((event.jets_pu_id.at(i) & 2) == 0) continue;
+                                if((event.jets_pu_id.at(i) & 2) != 0) continue;
                         }
 
                         int jet_hadronFlavour = event.jets_hadronFlavour.at(i);
@@ -254,18 +271,18 @@ public:
                             }
                         }
                     }//end loop on jets
-                    sync().n_b_jets = n_jets[5];
-                    sync().n_c_jets = n_jets[4];
-                    sync().n_udsg_jets = n_jets[0];
-                    sync().n_b_Mtag = n_Mtag[5];
-                    sync().n_c_Mtag = n_Mtag[4];
-                    sync().n_udsg_Mtag = n_Mtag[0];
+                    // sync().n_b_jets = n_jets[5];
+                    // sync().n_c_jets = n_jets[4];
+                    // sync().n_udsg_jets = n_jets[0];
+                    // sync().n_b_Mtag = n_Mtag[5];
+                    // sync().n_c_Mtag = n_Mtag[4];
+                    // sync().n_udsg_Mtag = n_Mtag[0];
 
-                    sync.Fill();
+                    //sync.Fill();
                 }//end loop on events
             }// end loop on files
         }//end loop on channel
-        sync.Write();
+        //sync.Write();
 
 
         //Create Efficiency Histograms
@@ -381,7 +398,7 @@ public:
 private:
     Arguments args;
     std::shared_ptr<TFile> outfile;
-    std::shared_ptr<TFile> outfile_sync;
+    // std::shared_ptr<TFile> outfile_sync;
     //BTagData anaData;
     std::map<std::string,std::shared_ptr<BTagData>> anaDataMap;
     std::vector<std::string> tau_signs = {"SS","OS"};
